@@ -36,16 +36,22 @@ if [ ! -x /usr/libexec/docker/cli-plugins/docker-compose ]; then
   chmod +x /usr/libexec/docker/cli-plugins/docker-compose
 fi
 
-# The `docker` package on Amazon Linux 2023 (unlike Docker CE's own repo)
-# doesn't ship a buildx plugin, but `docker compose ... --build` requires
-# buildx >= 0.17.0 under the hood. Install it the same way as compose above.
-if [ ! -x /usr/libexec/docker/cli-plugins/docker-buildx ]; then
+# The `docker` package on Amazon Linux 2023 ships an old buildx (0.12.x) at this
+# same path, but `docker compose ... --build` requires buildx >= 0.17.0 under
+# the hood. Replace it with the latest release when missing or too old.
+BUILDX_MIN="0.17.0"
+BUILDX_CURRENT=$(docker buildx version 2>/dev/null | awk '{print $2}' | sed 's/^v//' || true)
+if [ -z "$BUILDX_CURRENT" ] || \
+   [ "$(printf '%s\n' "$BUILDX_MIN" "$BUILDX_CURRENT" | sort -V | head -n1)" != "$BUILDX_MIN" ]; then
   case "$ARCH" in
     aarch64) BUILDX_ARCH="arm64" ;;
     x86_64)  BUILDX_ARCH="amd64" ;;
     *) echo "unsupported arch: $ARCH" >&2; exit 1 ;;
   esac
-  BUILDX_VERSION=$(curl -fsSL https://api.github.com/repos/docker/buildx/releases/latest | grep -m1 '"tag_name"' | cut -d '"' -f4)
+  # Resolve the latest tag via the releases/latest redirect; piping the API JSON
+  # into `grep -m1` makes curl fail with SIGPIPE, which aborts under pipefail.
+  BUILDX_LATEST_URL=$(curl -fsSLI -o /dev/null -w '%{url_effective}' https://github.com/docker/buildx/releases/latest)
+  BUILDX_VERSION="${BUILDX_LATEST_URL##*/}"
   curl -fsSL \
     "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-${BUILDX_ARCH}" \
     -o /usr/libexec/docker/cli-plugins/docker-buildx
