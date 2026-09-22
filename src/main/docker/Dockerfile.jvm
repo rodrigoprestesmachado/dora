@@ -21,28 +21,22 @@
 ###
 FROM mcr.microsoft.com/playwright/java:v1.62.0-noble
 
-ARG TARGETARCH
 ENV LANGUAGE='en_US:en'
+ENV SDKMAN_DIR=/root/.sdkman
+ENV SDKMAN_AUTO_ANSWER=true
 
-# Playwright's image JDK is 21; install Temurin 25 and put it first on PATH
-# so the Quarkus app (compiled with --release 25) can run. TARGETARCH is
-# amd64/arm64 (Docker); Adoptium uses x64/aarch64.
+# Playwright's image JDK is 21; install Temurin 25 via SDKMAN so the Quarkus
+# app (compiled with --release 25) can run. SDKMAN picks the right artifact
+# for the image architecture (amd64 / arm64) — Adoptium's "latest/ga" URL
+# 404s for linux/aarch64.
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends curl ca-certificates; \
-    case "${TARGETARCH}" in \
-      amd64) ARCH=x64 ;; \
-      arm64) ARCH=aarch64 ;; \
-      *) echo "unsupported TARGETARCH=${TARGETARCH}" >&2; exit 1 ;; \
-    esac; \
-    curl -fsSL "https://api.adoptium.net/v3/binary/latest/25/ga/linux/${ARCH}/jdk" -o /tmp/jdk25.tar.gz; \
-    mkdir -p /opt/java/jdk25; \
-    tar -xzf /tmp/jdk25.tar.gz -C /opt/java/jdk25 --strip-components=1; \
-    rm /tmp/jdk25.tar.gz; \
-    apt-get purge -y --auto-remove curl; \
+    apt-get install -y --no-install-recommends curl ca-certificates unzip zip bash; \
+    curl -s "https://get.sdkman.io?rcupdate=false" | bash; \
+    bash -lc "source ${SDKMAN_DIR}/bin/sdkman-init.sh && sdk install java 25-tem"; \
     rm -rf /var/lib/apt/lists/*
 
-ENV JAVA_HOME=/opt/java/jdk25
+ENV JAVA_HOME=/root/.sdkman/candidates/java/current
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
 # We make four distinct layers so if there are application changes the library layers can be re-used
