@@ -260,8 +260,9 @@ usado pelo `WebScraper` do RAG) não é suficiente.
 
 O `Dockerfile.jvm` usa a imagem oficial
 `mcr.microsoft.com/playwright/java:v1.62.0-noble`, que já inclui Chromium e as
-dependências de SO, e instala o Temurin JDK 25 por cima (o app continua
-compilado com `maven.compiler.release=25`). O Chromium entra na imagem no
+dependências de SO, e instala o Temurin JDK 25 via SDKMAN (`sdk install java
+25-tem`) por cima (o app continua compilado com `maven.compiler.release=25`).
+O Chromium entra na imagem no
 `docker compose ... --build`; **não** é preciso instalar Playwright no host
 da EC2.
 
