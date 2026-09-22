@@ -250,6 +250,35 @@ sessão SSM, `docker compose -p dora exec -T postgres psql -U dora -d dora -c
 HEADER" > /tmp/message.csv` e depois `cat /tmp/message.csv` para copiar a
 saída manualmente — só vale para volumes pequenos de dados.
 
+## Ferramenta de consulta processual TJRS (Playwright)
+
+A tool `DoraTools#lookupTjrsProcess` (ver `TjrsProcessScraper`) usa
+[Playwright](https://playwright.dev/java/) para abrir um Chromium headless real,
+porque a consulta processual do TJRS (`consulta.tjrs.jus.br/consulta-processual`)
+é uma SPA Angular sem API pública documentada — um `HttpClient` simples (como o
+usado pelo `WebScraper` do RAG) não é suficiente.
+
+O `Dockerfile.jvm` usa a imagem oficial
+`mcr.microsoft.com/playwright/java:v1.62.0-noble`, que já inclui Chromium e as
+dependências de SO, e instala o Temurin JDK 25 por cima (o app continua
+compilado com `maven.compiler.release=25`). O Chromium entra na imagem no
+`docker compose ... --build`; **não** é preciso instalar Playwright no host
+da EC2.
+
+Pontos de operação em produção:
+
+- **Arquitetura**: a EC2 é ARM (`t4g.medium` / Graviton). A tag precisa ter
+  `linux/arm64`. Se o pull falhar por falta dessa plataforma, o build na instância
+  não sobe.
+- **Memória/CPU**: um Chromium headless consome bem mais RAM que o resto do app;
+  o Compose reserva `shm_size: 1gb` para o `/dev/shm` do Chromium. Revalidar se a
+  `t4g.medium` (4 GiB) comporta chats concorrentes com navegações simultâneas.
+- **Rede de saída**: liberar egress para `consulta.tjrs.jus.br` (e `tjrs.jus.br`)
+  no Security Group/NACLs.
+- **Configuração**: propriedades `tjrs.scrape.*` em `application.properties`
+  (URL base, timeout, headless, rótulos de campos do formulário, marcadores de
+  "não encontrado") — ajustar sem redeploy de código se o TJRS mudar o layout.
+
 ## Fora do escopo deste guia (próximos passos sugeridos)
 
 - **Backups**: snapshots automáticos do volume EBS de dados (`aws_ebs_volume.data`) ou `pg_dump` agendado

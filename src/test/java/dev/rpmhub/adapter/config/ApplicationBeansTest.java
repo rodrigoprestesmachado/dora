@@ -15,10 +15,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import dev.rpmhub.adapter.out.ai.DoraAgent;
 import dev.rpmhub.application.ChatService;
+import dev.rpmhub.application.ProcessLookupService;
+import dev.rpmhub.domain.model.ProcessLookupResult;
 import dev.rpmhub.domain.model.RagQuery;
 import dev.rpmhub.domain.model.RagResponse;
 import dev.rpmhub.domain.port.in.ChatUseCase;
+import dev.rpmhub.domain.port.in.ProcessLookupUseCase;
 import dev.rpmhub.domain.port.out.EmbeddingRepository;
+import dev.rpmhub.domain.port.out.ProcessLookupPort;
 import dev.rpmhub.domain.port.out.Repository;
 import io.smallrye.mutiny.Multi;
 
@@ -52,6 +56,12 @@ class ApplicationBeansTest {
     private DoraAgent doraAgent;
 
     /**
+     * Driven port mocked to isolate the wiring under test.
+     */
+    @Mock
+    private ProcessLookupPort processLookupPort;
+
+    /**
      * Wiring class under test.
      */
     private ApplicationBeans applicationBeans;
@@ -65,6 +75,7 @@ class ApplicationBeansTest {
         applicationBeans.chatRepository = chatRepository;
         applicationBeans.embeddingRepository = embeddingRepository;
         applicationBeans.doraAgent = doraAgent;
+        applicationBeans.processLookupPort = processLookupPort;
     }
 
     /**
@@ -83,6 +94,22 @@ class ApplicationBeansTest {
         assertInstanceOf(ChatService.class, chatUseCase);
         List<String> chunks = chatUseCase.chat("5511999999999", "oi").collect().asList().await().indefinitely();
         assertEquals(List.of("resposta"), chunks);
+    }
+
+    /**
+     * Ensures the produced use case is a plain, framework-free {@link ProcessLookupService}
+     * wired with the injected lookup port.
+     */
+    @Test
+    void processLookupUseCase_producesProcessLookupServiceWiredWithInjectedPort() {
+        String cnjNumber = "5033013-66.2026.8.21.0022";
+        when(processLookupPort.lookup(cnjNumber))
+                .thenReturn(Optional.of(new ProcessLookupResult(cnjNumber, "# Andamento", "https://x")));
+
+        ProcessLookupUseCase processLookupUseCase = applicationBeans.processLookupUseCase();
+
+        assertInstanceOf(ProcessLookupService.class, processLookupUseCase);
+        assertEquals("# Andamento", processLookupUseCase.lookup(cnjNumber));
     }
 
 }

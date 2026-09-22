@@ -12,10 +12,13 @@ package dev.rpmhub.adapter.config;
 import dev.rpmhub.adapter.out.ai.DoraAgent;
 import dev.rpmhub.application.ChatService;
 import dev.rpmhub.application.IngestService;
+import dev.rpmhub.application.ProcessLookupService;
 import dev.rpmhub.domain.port.in.ChatUseCase;
 import dev.rpmhub.domain.port.in.IngestDocumentsPort;
+import dev.rpmhub.domain.port.in.ProcessLookupUseCase;
 import dev.rpmhub.domain.port.out.EmbeddingRepository;
 import dev.rpmhub.domain.port.out.IngestPort;
+import dev.rpmhub.domain.port.out.ProcessLookupPort;
 import dev.rpmhub.domain.port.out.Repository;
 import dev.rpmhub.domain.port.out.WebScraperPort;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -50,6 +53,10 @@ public class ApplicationBeans {
     /** Port used to scrape URLs into ingestible documents. */
     @Inject
     WebScraperPort webScraperPort;
+
+    /** Port used to look up a legal process by its CNJ number (e.g. TJRS). */
+    @Inject
+    ProcessLookupPort processLookupPort;
 
     /** LangChain4j AI service that streams replies grounded in RAG-retrieved context. */
     @Inject
@@ -89,6 +96,17 @@ public class ApplicationBeans {
     @ApplicationScoped
     public IngestDocumentsPort ingestDocumentsPort() {
         return new IngestService(ingestPort, webScraperPort);
+    }
+
+    /**
+     * Produces the {@link ProcessLookupUseCase} bean backed by a plain {@link ProcessLookupService}.
+     *
+     * @return the process lookup use case implementation, consumed by {@code DoraTools}
+     */
+    @Produces
+    @ApplicationScoped
+    public ProcessLookupUseCase processLookupUseCase() {
+        return new ProcessLookupService(processLookupPort);
     }
 
 }
