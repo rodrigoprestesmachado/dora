@@ -1,7 +1,10 @@
 variable "aws_region" {
-  description = "AWS region to deploy into."
+  description = <<-EOT
+    AWS region to deploy into. Defaults to sa-east-1 (São Paulo) because the TJRS
+    process lookup site (consulta.tjrs.jus.br) drops connections from US AWS IPs.
+  EOT
   type        = string
-  default     = "us-east-1"
+  default     = "sa-east-1"
 }
 
 variable "project_name" {

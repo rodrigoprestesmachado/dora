@@ -6,11 +6,14 @@ Postgres+pgvector e Redis via Docker Compose, com HTTPS automático via Caddy.
 API da OpenAI (`gpt-4o-mini`) em vez de um LLM local — não é preciso rodar
 Ollama na instância (isso só é usado em desenvolvimento local).
 
-Custo aproximado (região `us-east-1`, sob demanda): uma `t4g.medium` (2 vCPU /
-4 GiB) fica em torno de US$ 24/mês, mais ~US$ 5/mês para os 60 GiB de EBS
-(gp3, root + data) e centavos para o Elastic IP enquanto associado à
-instância em execução. Considere uma Reserved/Savings Plan ou Spot depois de
-validar a carga.
+A região padrão é `sa-east-1` (São Paulo): a consulta processual do TJRS
+(`consulta.tjrs.jus.br`) não aceita conexões de IPs da AWS nos EUA — a
+conexão TCP simplesmente expira a partir de `us-east-1`.
+
+Custo aproximado (região `sa-east-1`, sob demanda): uma `t4g.medium` (2 vCPU /
+4 GiB) fica em torno de US$ 39/mês, mais ~US$ 9/mês para os 60 GiB de EBS
+(gp3, root + data) e o Elastic IP público (~US$ 3,60/mês). Considere uma
+Reserved/Savings Plan depois de validar a carga.
 
 ## Pré-requisitos
 
@@ -275,7 +278,10 @@ Pontos de operação em produção:
   o Compose reserva `shm_size: 1gb` para o `/dev/shm` do Chromium. Revalidar se a
   `t4g.medium` (4 GiB) comporta chats concorrentes com navegações simultâneas.
 - **Rede de saída**: liberar egress para `consulta.tjrs.jus.br` (e `tjrs.jus.br`)
-  no Security Group/NACLs.
+  no Security Group/NACLs. O TJRS descarta conexões de IPs da AWS nos EUA; por
+  isso a instância roda em `sa-east-1`. Teste a partir da instância com
+  `curl -sS -o /dev/null -w "%{http_code}\n" --max-time 20 https://consulta.tjrs.jus.br/consulta-processual/`
+  (deve retornar `200`, não timeout).
 - **Configuração**: propriedades `tjrs.scrape.*` em `application.properties`
   (URL base, timeout, headless, rótulos de campos do formulário, marcadores de
   "não encontrado") — ajustar sem redeploy de código se o TJRS mudar o layout.
