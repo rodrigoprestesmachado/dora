@@ -21,6 +21,7 @@ import com.microsoft.playwright.Playwright;
 import com.microsoft.playwright.PlaywrightException;
 import com.microsoft.playwright.options.AriaRole;
 import com.microsoft.playwright.options.LoadState;
+import com.microsoft.playwright.options.WaitUntilState;
 
 import dev.rpmhub.adapter.out.rag.HtmlToMarkdown;
 import dev.rpmhub.domain.model.ProcessLookupResult;
@@ -136,14 +137,23 @@ public class TjrsProcessScraper implements ProcessLookupPort {
 
         try (Playwright playwright = Playwright.create()) {
             try (Browser browser = playwright.chromium()
-                    .launch(new BrowserType.LaunchOptions().setHeadless(headless))) {
+                    .launch(new BrowserType.LaunchOptions()
+                            .setHeadless(headless)
+                            // Required inside Docker: Chromium's sandbox and the default 64 MiB
+                            // /dev/shm otherwise hang the first navigation until timeout.
+                            .setArgs(List.of(
+                                    "--no-sandbox",
+                                    "--disable-dev-shm-usage",
+                                    "--disable-gpu")))) {
 
                 BrowserContext context = browser.newContext();
                 Page page = context.newPage();
                 page.setDefaultTimeout(timeoutMs);
 
-                page.navigate(baseUrl);
-                page.waitForLoadState(LoadState.NETWORKIDLE);
+                // DOMCONTENTLOADED: the TJRS SPA can keep the "load" event from firing
+                // (analytics/hCaptcha). Waiting for "load" then times out after 45s.
+                page.navigate(baseUrl, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+                page.getByLabel(processNumberLabel).first().waitFor();
 
                 page.getByLabel(processNumberLabel).first().fill(cnjNumber);
 
