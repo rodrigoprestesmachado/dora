@@ -261,6 +261,14 @@ porque a consulta processual do TJRS (`consulta.tjrs.jus.br/consulta-processual`
 é uma SPA Angular sem API pública documentada — um `HttpClient` simples (como o
 usado pelo `WebScraper` do RAG) não é suficiente.
 
+A tool `DoraTools#searchTjrsProcessesByPerson` usa o mesmo Chromium, na mesma
+sessão, para a aba "Por nome da parte". A navegação abre `/partes/por-nome`
+com busca pelo nome exato (`tipoPesquisa=E`). O TJRS não consulta por CPF.
+Quando há uma única pessoa com esse nome, segue para
+`/partes/processos-por-nome`. O andamento detalhado continua em
+`lookupTjrsProcess`, quando o cliente informa o número CNJ. Com várias
+pessoas de nome idêntico, a tool para na lista de nomes.
+
 O `Dockerfile.jvm` usa a imagem oficial
 `mcr.microsoft.com/playwright/java:v1.62.0-noble`, que já inclui Chromium e as
 dependências de SO, e instala o Temurin JDK 25 via SDKMAN (`sdk install java

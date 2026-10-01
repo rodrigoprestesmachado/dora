@@ -16,7 +16,7 @@ variable "project_name" {
 variable "instance_type" {
   description = <<-EOT
     EC2 instance type. t4g.* (Graviton/ARM) is cheaper than equivalent x86 (t3.*)
-    instances and is enough to run dora + Postgres + Redis + Ollama (gemma4) on a
+    instances and is enough to run dora + Postgres + Redis + Ollama (gemma4:e2b) on a
     single box. Bump to t4g.large if Ollama inference feels too slow/OOMs.
   EOT
   type        = string
@@ -32,7 +32,7 @@ variable "root_volume_size_gb" {
 variable "data_volume_size_gb" {
   description = <<-EOT
     Size (GiB) of the extra EBS data volume used for Postgres data, Redis data and
-    Ollama model weights (gemma4 alone is a few GB). Mounted at /data by user_data.sh.
+    Ollama model weights (gemma4:e2b alone is a few GB). Mounted at /data by user_data.sh.
   EOT
   type        = number
   default     = 40

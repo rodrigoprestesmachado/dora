@@ -25,13 +25,13 @@ import jakarta.inject.Inject;
 @ApplicationScoped
 public class DoraTools {
 
-    /** Use case that looks up a legal process by its CNJ number on the TJRS website. */
+    /** Use case that looks up a legal process on the TJRS website. */
     private final ProcessLookupUseCase processLookupUseCase;
 
     /**
      * Creates DoraTools with the given use cases.
      *
-     * @param processLookupUseCase use case used to look up a legal process by number
+     * @param processLookupUseCase use case used to look up a legal process by number or by person
      */
     @Inject
     public DoraTools(ProcessLookupUseCase processLookupUseCase) {
@@ -59,6 +59,33 @@ public class DoraTools {
         Log.info("🔧 [TOOL CALL] lookupTjrsProcess invoked by the agent. processNumber=" + processNumber);
         String result = processLookupUseCase.lookup(processNumber);
         Log.info("🔧 [TOOL CALL] lookupTjrsProcess finished. processNumber=" + processNumber);
+        return result;
+    }
+
+    /**
+     * Lists TJRS processes for a person identified by exact name.
+     *
+     * <p>Call this when the client asks about a case and gives a person's name
+     * instead of the CNJ number. The court has no CPF search, so this tool does
+     * not take one. A single exact match returns that person's processes; several
+     * records with the same name return the people so the client can say which
+     * one. After the client chooses a process number, call
+     * {@link #lookupTjrsProcess(String)}.
+     *
+     * @param personName the person's name (first name and surname)
+     * @return Markdown listing people or processes, or a clear explanation if the
+     *         input is invalid, nothing was found, or the search failed
+     */
+    @Tool("Lista no TJRS os processos de uma pessoa a partir do nome exato da parte "
+            + "(nome e sobrenome). Não peça CPF: o TJRS não consulta por CPF. "
+            + "Se houver uma única pessoa com esse nome, devolve os processos dela; "
+            + "se houver várias com o mesmo nome, devolve a lista para o cliente indicar qual é. "
+            + "Não consulta o andamento detalhado: depois que o cliente informar o número CNJ, "
+            + "use a consulta por número do processo.")
+    public String searchTjrsProcessesByPerson(String personName) {
+        Log.info("🔧 [TOOL CALL] searchTjrsProcessesByPerson invoked by the agent. personName=" + personName);
+        String result = processLookupUseCase.searchByPerson(personName);
+        Log.info("🔧 [TOOL CALL] searchTjrsProcessesByPerson finished. personName=" + personName);
         return result;
     }
 }

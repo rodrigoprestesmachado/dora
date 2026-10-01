@@ -9,6 +9,10 @@
  */
 package dev.rpmhub.adapter.out.tjrs;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,6 +28,10 @@ import com.microsoft.playwright.options.LoadState;
 import com.microsoft.playwright.options.WaitUntilState;
 
 import dev.rpmhub.adapter.out.rag.HtmlToMarkdown;
+import dev.rpmhub.adapter.out.tjrs.TjrsPartyPageParser.PersonRow;
+import dev.rpmhub.adapter.out.tjrs.TjrsPartyPageParser.ProcessRow;
+import dev.rpmhub.domain.model.PartySearchKind;
+import dev.rpmhub.domain.model.PartySearchResult;
 import dev.rpmhub.domain.model.ProcessLookupResult;
 import dev.rpmhub.domain.port.out.ProcessLookupException;
 import dev.rpmhub.domain.port.out.ProcessLookupPort;
@@ -73,6 +81,12 @@ public class TjrsProcessScraper implements ProcessLookupPort {
     /** Polling interval used while waiting for the result to be populated. */
     private static final double RESULT_POLL_INTERVAL_MS = 300;
 
+    /** How many paginator pages to walk on the name and process lists. */
+    private static final int MAX_PARTY_PAGES = 10;
+
+    /** Pause after changing page size or moving to the next page, so Angular can render. */
+    private static final double PARTY_PAGE_SETTLE_MS = 400;
+
     /** Service that converts the scraped result HTML to clean Markdown. */
     private final HtmlToMarkdown htmlToMarkdownService;
 
@@ -115,8 +129,24 @@ public class TjrsProcessScraper implements ProcessLookupPort {
      * plausible variants as a safety margin against minor copy changes.
      */
     @ConfigProperty(name = "tjrs.scrape.not-found-markers", defaultValue = "nenhum registro encontrado,"
-            + "processo não encontrado,nenhum processo foi localizado,não foi possível localizar,não localizado")
+            + "processo não encontrado,nenhum processo foi localizado,não foi possível localizar,não localizado,"
+            + "não foram encontrados processos para esse nome")
     List<String> notFoundMarkers;
+
+    /** Maximum people listed when several names match and the client must choose. */
+    @ConfigProperty(name = "tjrs.scrape.people-result-limit", defaultValue = "15")
+    int peopleResultLimit;
+
+    /** Maximum active processes listed for the chosen person. */
+    @ConfigProperty(name = "tjrs.scrape.process-list-limit", defaultValue = "20")
+    int processListLimit;
+
+    /** Material paginator page size requested on the name and process tables. */
+    @ConfigProperty(name = "tjrs.scrape.party-page-size", defaultValue = "50")
+    int partyPageSize;
+
+    /** Reads the name and process tables from the TJRS party-search HTML. */
+    private final TjrsPartyPageParser partyPageParser = new TjrsPartyPageParser();
 
     /**
      * Creates a TjrsProcessScraper with the given HTML-to-Markdown service.
@@ -136,15 +166,7 @@ public class TjrsProcessScraper implements ProcessLookupPort {
         double timeoutMs = Math.max(1, timeoutSeconds) * 1000d;
 
         try (Playwright playwright = Playwright.create()) {
-            try (Browser browser = playwright.chromium()
-                    .launch(new BrowserType.LaunchOptions()
-                            .setHeadless(headless)
-                            // Required inside Docker: Chromium's sandbox and the default 64 MiB
-                            // /dev/shm otherwise hang the first navigation until timeout.
-                            .setArgs(List.of(
-                                    "--no-sandbox",
-                                    "--disable-dev-shm-usage",
-                                    "--disable-gpu")))) {
+            try (Browser browser = openBrowser(playwright)) {
 
                 BrowserContext context = browser.newContext();
                 Page page = context.newPage();
@@ -193,6 +215,334 @@ public class TjrsProcessScraper implements ProcessLookupPort {
             throw new ProcessLookupException(
                     "Erro inesperado ao consultar o processo " + cnjNumber + " no TJRS", e);
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public PartySearchResult searchByPerson(String normalizedName) {
+        double timeoutMs = Math.max(1, timeoutSeconds) * 1000d;
+
+        try (Playwright playwright = Playwright.create()) {
+            try (Browser browser = openBrowser(playwright)) {
+                BrowserContext context = browser.newContext();
+                Page page = context.newPage();
+                page.setDefaultTimeout(timeoutMs);
+
+                List<PersonRow> people = searchPeople(page, normalizedName, "A", timeoutMs);
+                boolean pageListedSomeone = !people.isEmpty();
+                people = partyPageParser.exactNames(people, normalizedName);
+                if (people.isEmpty()) {
+                    Log.info("ℹ️ Nenhum processo ativo para o nome exato " + normalizedName
+                            + "; consultando processos baixados no TJRS");
+                    List<PersonRow> closedCases = searchPeople(page, normalizedName, "B", timeoutMs);
+                    pageListedSomeone = pageListedSomeone || !closedCases.isEmpty();
+                    people = partyPageParser.exactNames(closedCases, normalizedName);
+                }
+                if (people.isEmpty()) {
+                    if (pageListedSomeone || looksLikeNotFound(extractResultHtml(page))) {
+                        Log.info("ℹ️ Nenhuma pessoa localizada no TJRS para o nome exato " + normalizedName);
+                        return new PartySearchResult(PartySearchKind.NOT_FOUND, "", page.url());
+                    }
+                    throw new ProcessLookupException(
+                            "A página de nomes do TJRS não trouxe pessoas para " + normalizedName);
+                }
+
+                if (people.size() > 1) {
+                    return new PartySearchResult(PartySearchKind.AMBIGUOUS_PEOPLE,
+                            partyPageParser.peopleMarkdown(people, peopleResultLimit), page.url());
+                }
+
+                return openProcessList(page, people.get(0), timeoutMs);
+            }
+        } catch (ProcessLookupException e) {
+            throw e;
+        } catch (PlaywrightException e) {
+            throw new ProcessLookupException(
+                    "Falha de automação (Playwright) ao consultar processos de " + normalizedName + " no TJRS", e);
+        } catch (Exception e) {
+            throw new ProcessLookupException(
+                    "Erro inesperado ao consultar processos de " + normalizedName + " no TJRS", e);
+        }
+    }
+
+    /**
+     * Opens Chromium with the flags required to run inside Docker.
+     *
+     * @param playwright the Playwright instance that owns the browser
+     * @return a launched Chromium browser; the caller closes it
+     */
+    private Browser openBrowser(Playwright playwright) {
+        return playwright.chromium()
+                .launch(new BrowserType.LaunchOptions()
+                        .setHeadless(headless)
+                        // Required inside Docker: Chromium's sandbox and the default 64 MiB
+                        // /dev/shm otherwise hang the first navigation until timeout.
+                        .setArgs(List.of(
+                                "--no-sandbox",
+                                "--disable-dev-shm-usage",
+                                "--disable-gpu")));
+    }
+
+    /**
+     * Opens the name-search page and reads the people table.
+     *
+     * @param page           current Playwright page
+     * @param normalizedName upper-case person name
+     * @param situacao       {@code A} for active cases, {@code B} for closed ones
+     * @param timeoutMs      navigation timeout
+     * @return distinct people found on that search, before the exact-name filter
+     */
+    private List<PersonRow> searchPeople(Page page, String normalizedName, String situacao, double timeoutMs) {
+        page.navigate(partySearchUrl(normalizedName, situacao),
+                new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+        waitForPartyContent(page, timeoutMs);
+        selectPartyPageSize(page);
+        return collectPeople(page);
+    }
+
+    /**
+     * Builds the URL of the name-search results page.
+     *
+     * <p>{@code tipoPesquisa=E} is the court's exact-name search. The public form
+     * only offers phonetic match when no comarca is selected, and that match
+     * returns similar names instead of the name the client typed.
+     *
+     * @param normalizedName upper-case person name
+     * @param situacao       {@code A} for active cases, {@code B} for closed ones
+     * @return absolute URL of {@code /partes/por-nome}
+     */
+    private String partySearchUrl(String normalizedName, String situacao) {
+        String base = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        return base + "partes/por-nome?nome=" + URLEncoder.encode(normalizedName, StandardCharsets.UTF_8)
+                + "&comarca=&tipoPesquisa=E&situacao=" + situacao + "&movimentados=0";
+    }
+
+    /**
+     * Resolves a link from the party pages against the site origin.
+     *
+     * <p>Angular may emit a root-relative path such as {@code /partes/processos-por-nome}.
+     * Those paths belong under {@code /consulta-processual}.
+     *
+     * @param pageUrl URL of the page that contained the link
+     * @param href    raw href attribute
+     * @return absolute URL, or {@code null} when {@code href} is blank
+     */
+    static String resolvePartyHref(String pageUrl, String href) {
+        if (href == null || href.isBlank()) {
+            return null;
+        }
+        if (href.startsWith("http://") || href.startsWith("https://")) {
+            return href;
+        }
+        URI current = URI.create(pageUrl);
+        String origin = current.getScheme() + "://" + current.getAuthority();
+        if (href.startsWith("/")) {
+            if (href.startsWith("/consulta-processual/") || href.startsWith("/consulta-processual?")) {
+                return origin + href;
+            }
+            return origin + "/consulta-processual" + href;
+        }
+        return current.resolve(href).toString();
+    }
+
+    private PartySearchResult openProcessList(Page page, PersonRow person, double timeoutMs) {
+        String href = resolvePartyHref(page.url(), person.href());
+        if (href == null) {
+            throw new ProcessLookupException("A pessoa " + person.name() + " não tem link para a lista de processos");
+        }
+        page.navigate(href, new Page.NavigateOptions().setWaitUntil(WaitUntilState.DOMCONTENTLOADED));
+        waitForPartyContent(page, timeoutMs);
+        selectPartyPageSize(page);
+
+        List<ProcessRow> processes = collectProcesses(page);
+        if (processes.isEmpty()) {
+            Log.info("ℹ️ Nenhum processo ativo localizado no TJRS para " + person.name());
+            return new PartySearchResult(PartySearchKind.NOT_FOUND, "", page.url());
+        }
+        String situation = page.url().contains("situacao=B") ? "baixados" : "ativos";
+        String markdown = partyPageParser.processesMarkdown(processes, processListLimit)
+                + "\n\nSituação consultada: " + situation + ".";
+        return new PartySearchResult(PartySearchKind.PROCESS_LIST, markdown, page.url());
+    }
+
+    private List<PersonRow> collectPeople(Page page) {
+        List<PersonRow> raw = new ArrayList<>();
+        int limit = Math.max(1, peopleResultLimit);
+        for (int pageIndex = 0; pageIndex < MAX_PARTY_PAGES; pageIndex++) {
+            raw.addAll(partyPageParser.parsePeople(extractResultHtml(page)));
+            List<PersonRow> distinct = partyPageParser.distinctPeople(raw);
+            if (distinct.size() > limit) {
+                return distinct;
+            }
+            if (!advancePartyPaginators(page)) {
+                return distinct;
+            }
+        }
+        return partyPageParser.distinctPeople(raw);
+    }
+
+    private List<ProcessRow> collectProcesses(Page page) {
+        List<ProcessRow> processes = new ArrayList<>();
+        int limit = Math.max(1, processListLimit);
+        for (int pageIndex = 0; pageIndex < MAX_PARTY_PAGES; pageIndex++) {
+            for (ProcessRow row : partyPageParser.parseProcesses(extractResultHtml(page))) {
+                if (processes.stream().noneMatch(existing -> existing.number().equals(row.number()))) {
+                    processes.add(row);
+                }
+            }
+            if (processes.size() > limit || !advancePartyPaginators(page)) {
+                return processes;
+            }
+        }
+        return processes;
+    }
+
+    /**
+     * Waits until the party page shows a person/process link or a not-found message.
+     *
+     * @param page      the current Playwright page
+     * @param timeoutMs maximum time to wait
+     */
+    private void waitForPartyContent(Page page, double timeoutMs) {
+        Locator result = page.locator(resultSelector).first();
+        long deadline = System.currentTimeMillis() + (long) timeoutMs;
+
+        while (System.currentTimeMillis() < deadline) {
+            if (result.count() > 0) {
+                String text = result.innerText();
+                boolean hasLink = result.locator("a[href*='processos-por-nome'], a[href*='processo/resumo']").count() > 0;
+                if (hasLink || looksLikeNotFound(text)) {
+                    return;
+                }
+            }
+            page.waitForTimeout(RESULT_POLL_INTERVAL_MS);
+        }
+    }
+
+    /**
+     * Asks every visible Material paginator to show {@link #partyPageSize} rows.
+     *
+     * <p>A paginator that already lists every row is left as it is. The control is a
+     * Material select: a normal Playwright click waits out the page timeout because
+     * the CDK overlay backdrop covers the option. A native click selects it. A failure
+     * keeps the site's default page size and the search continues with the next button.
+     *
+     * @param page the current Playwright page
+     */
+    private void selectPartyPageSize(Page page) {
+        String sizeLabel = String.valueOf(Math.max(1, partyPageSize));
+        int count = page.locator("mat-paginator").count();
+        for (int i = 0; i < count; i++) {
+            boolean opened = false;
+            try {
+                opened = openPageSizeSelect(page, i, sizeLabel);
+                if (!opened) {
+                    continue;
+                }
+                page.waitForTimeout(PARTY_PAGE_SETTLE_MS);
+                if (!choosePageSizeOption(page, sizeLabel)) {
+                    Log.warn("⚠️ Não foi possível ajustar a paginação da consulta por nome no TJRS");
+                }
+                page.waitForTimeout(PARTY_PAGE_SETTLE_MS);
+            } catch (PlaywrightException e) {
+                Log.warn("⚠️ Não foi possível ajustar a paginação da consulta por nome no TJRS");
+            } finally {
+                if (opened) {
+                    dismissComarcaOverlay(page);
+                }
+            }
+        }
+    }
+
+    /**
+     * Opens the page-size select of one paginator when a larger page would show more rows.
+     *
+     * @param page      the current Playwright page
+     * @param index     position of the {@code mat-paginator} on the page
+     * @param sizeLabel option text to select, such as {@code 50}
+     * @return {@code true} when the dropdown was opened
+     */
+    private boolean openPageSizeSelect(Page page, int index, String sizeLabel) {
+        Object opened = page.evaluate(
+                """
+                ([index, sizeLabel]) => {
+                    const paginator = document.querySelectorAll('mat-paginator')[index];
+                    if (!paginator) {
+                        return false;
+                    }
+                    const select = paginator.querySelector('mat-select');
+                    if (!select || select.getClientRects().length === 0) {
+                        return false;
+                    }
+                    const current = (select.innerText || '').replace(/\\s+/g, ' ').trim();
+                    if (current === sizeLabel) {
+                        return false;
+                    }
+                    const range = paginator.querySelector('.mat-mdc-paginator-range-label');
+                    const match = range && /de\\s+(\\d+)/.exec(range.innerText || '');
+                    const shown = parseInt(current, 10);
+                    if (match && shown && Number(match[1]) <= shown) {
+                        return false;
+                    }
+                    select.click();
+                    return true;
+                }
+                """,
+                List.of(index, sizeLabel));
+        return Boolean.TRUE.equals(opened);
+    }
+
+    /**
+     * Clicks the open page-size option whose text equals {@code sizeLabel}.
+     *
+     * @param page      the current Playwright page
+     * @param sizeLabel option text, such as {@code 50}
+     * @return {@code true} when the option was clicked
+     */
+    private boolean choosePageSizeOption(Page page, String sizeLabel) {
+        Object selected = page.evaluate(
+                """
+                (sizeLabel) => {
+                    const option = [...document.querySelectorAll('mat-option')]
+                        .find(item => (item.innerText || '').trim() === sizeLabel);
+                    if (!option) {
+                        return false;
+                    }
+                    option.click();
+                    return true;
+                }
+                """,
+                sizeLabel);
+        return Boolean.TRUE.equals(selected);
+    }
+
+    /**
+     * Clicks every enabled "next page" button on the party tables.
+     *
+     * @param page the current Playwright page
+     * @return {@code true} when at least one paginator advanced
+     */
+    private boolean advancePartyPaginators(Page page) {
+        Locator nextButtons = page.locator("mat-paginator button.mat-mdc-paginator-navigation-next");
+        boolean clicked = false;
+        int count = nextButtons.count();
+        for (int i = 0; i < count; i++) {
+            Locator button = nextButtons.nth(i);
+            try {
+                if (button.isEnabled()) {
+                    button.click();
+                    clicked = true;
+                }
+            } catch (PlaywrightException e) {
+                Log.warn("⚠️ Não foi possível avançar a página da consulta por nome no TJRS");
+            }
+        }
+        if (clicked) {
+            page.waitForTimeout(PARTY_PAGE_SETTLE_MS);
+        }
+        return clicked;
     }
 
     /**

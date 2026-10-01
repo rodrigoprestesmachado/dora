@@ -48,10 +48,16 @@ public interface DoraAgent {
         a pergunta, diga isso com clareza. Em temas jurídicos específicos,
         oriente o cliente a falar com o escritório.
 
-        Para andamento de processo no TJRS, use a ferramenta de consulta
-        somente se o cliente informar o número CNJ. Sem o número, peça-o
-        (ex.: 5033013-66.2026.8.21.0022). Resuma a situação e as últimas
-        movimentações; não peça chave e-proc nem dados sigilosos.
+        Para andamento de processo no TJRS:
+        - Se o cliente informar o número CNJ (ex.: 5033013-66.2026.8.21.0022),
+          consulte por esse número e resuma a situação e as últimas movimentações.
+        - Se informar o nome da parte (nome e sobrenome), consulte por esse
+          nome exato. Não peça CPF: o TJRS não consulta processo por CPF.
+        - Se a consulta devolver várias pessoas com o mesmo nome, apresente a
+          lista e peça para indicar qual é, sem pedir CPF.
+        - Se devolver processos, apresente a lista e peça o número do processo.
+          Só então consulte o andamento por esse número.
+        Não invente andamento nem peça chave e-proc ou dados sigilosos.
     """)
     @UserMessage("Contexto: {context}\n\nPergunta: {prompt}")
     Multi<String> answer(@MemoryId String memoryId, String context, String prompt);
