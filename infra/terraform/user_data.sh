@@ -59,7 +59,7 @@ if [ -z "$BUILDX_CURRENT" ] || \
 fi
 
 # ------------------------------------------------------------------
-# Extra EBS data volume -> /data (Postgres/Redis/Ollama persistent data +
+# Extra EBS data volume -> /data (Postgres/Redis persistent data +
 # Docker's data-root, so it's independent from the smaller root volume).
 # ------------------------------------------------------------------
 DATA_DEVICE=""

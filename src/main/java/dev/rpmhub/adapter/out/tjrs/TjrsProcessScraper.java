@@ -148,6 +148,9 @@ public class TjrsProcessScraper implements ProcessLookupPort {
     /** Reads the name and process tables from the TJRS party-search HTML. */
     private final TjrsPartyPageParser partyPageParser = new TjrsPartyPageParser();
 
+    /** Keeps only the latest movement on the process-summary page. */
+    private final TjrsProcessPageParser processPageParser = new TjrsProcessPageParser();
+
     /**
      * Creates a TjrsProcessScraper with the given HTML-to-Markdown service.
      *
@@ -197,7 +200,7 @@ public class TjrsProcessScraper implements ProcessLookupPort {
                 }
 
                 String markdown = htmlToMarkdownService.normalizeMarkdownLineBreaks(
-                        htmlToMarkdownService.toMarkdown(html));
+                        htmlToMarkdownService.toMarkdown(processPageParser.keepLatestMovement(html)));
 
                 if (markdown.isBlank()) {
                     throw new ProcessLookupException(

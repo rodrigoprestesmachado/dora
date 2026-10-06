@@ -16,11 +16,12 @@ variable "project_name" {
 variable "instance_type" {
   description = <<-EOT
     EC2 instance type. t4g.* (Graviton/ARM) is cheaper than equivalent x86 (t3.*)
-    instances and is enough to run dora + Postgres + Redis + Ollama (gemma4:e2b) on a
-    single box. Bump to t4g.large if Ollama inference feels too slow/OOMs.
+    instances. t4g.small (2 vCPU / 2 GiB) is enough for dora + Postgres + Redis
+    because production chat calls OpenAI instead of a local model. Bump to
+    t4g.medium if concurrent Playwright lookups run out of memory.
   EOT
   type        = string
-  default     = "t4g.medium" # 2 vCPU / 4 GiB RAM
+  default     = "t4g.small" # 2 vCPU / 2 GiB RAM
 }
 
 variable "root_volume_size_gb" {
@@ -32,10 +33,11 @@ variable "root_volume_size_gb" {
 variable "data_volume_size_gb" {
   description = <<-EOT
     Size (GiB) of the extra EBS data volume used for Postgres data, Redis data and
-    Ollama model weights (gemma4:e2b alone is a few GB). Mounted at /data by user_data.sh.
+    Docker's data-root. Mounted at /data by user_data.sh. Ollama weights are not
+    stored here: production does not run a local model.
   EOT
   type        = number
-  default     = 40
+  default     = 20
 }
 
 variable "data_volume_type" {

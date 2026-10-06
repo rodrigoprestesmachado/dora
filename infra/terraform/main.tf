@@ -1,8 +1,9 @@
 ####
 # Low-cost, single-EC2-instance infrastructure for dora.
 #
-# Everything (app + Postgres/pgvector + Redis + Ollama) runs as Docker Compose
-# services on one Graviton (ARM) EC2 instance. No RDS, ElastiCache or ALB — those
+# Everything (app + Postgres/pgvector + Redis) runs as Docker Compose services on
+# one Graviton (ARM) EC2 instance. Production chat and embeddings call OpenAI;
+# Ollama is only used in local development. No RDS, ElastiCache or ALB — those
 # are the main cost drivers we're avoiding here. HTTPS termination is handled by
 # Caddy (see ../../Caddyfile) directly on the instance, and admin access is done
 # via SSM Session Manager instead of an SSH key pair, so the security group does
@@ -152,14 +153,20 @@ resource "aws_instance" "dora" {
     http_tokens = "required" # enforce IMDSv2
   }
 
+  # T4g launches as "unlimited" and bills surplus CPU credits. "standard" throttles
+  # past the baseline instead, which is the cheaper mode for this single box.
+  credit_specification {
+    cpu_credits = "standard"
+  }
+
   tags = {
     Name    = var.project_name
     Project = var.project_name
   }
 }
 
-# Extra EBS volume for Postgres/Redis/Ollama data, kept independent from the
-# root volume/instance lifecycle.
+# Extra EBS volume for Postgres, Redis and Docker's data-root, kept independent
+# from the root volume/instance lifecycle.
 resource "aws_ebs_volume" "data" {
   availability_zone = aws_instance.dora.availability_zone
   size              = var.data_volume_size_gb

@@ -44,15 +44,15 @@ public class DoraTools {
      * CNJ process number.
      *
      * <p>Use this whenever a client asks about the status, progress or latest
-     * movements of a legal case and provides (or can provide) the process
+     * movement of a legal case and provides (or can provide) the process
      * number. Ask the client for the process number first if they have not
      * given one; it should look like {@code 5033013-66.2026.8.21.0022}.
      *
      * @param processNumber the CNJ process number, with or without punctuation
-     * @return Markdown with the process status/movements, or a clear explanation
+     * @return Markdown with the process status and its latest movement, or a clear explanation
      *         if the number is invalid, the process was not found, or the lookup failed
      */
-    @Tool("Consulta no TJRS (Tribunal de Justiça do RS) o status e o histórico de movimentações "
+    @Tool("Consulta no TJRS (Tribunal de Justiça do RS) o status e a última movimentação "
             + "de um processo judicial, a partir do número do processo no formato CNJ "
             + "(ex.: 5033013-66.2026.8.21.0022).")
     public String lookupTjrsProcess(String processNumber) {
