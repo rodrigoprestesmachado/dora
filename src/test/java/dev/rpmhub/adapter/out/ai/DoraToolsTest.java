@@ -39,4 +39,14 @@ class DoraToolsTest {
         assertEquals("# Andamento do processo", result);
         verify(processLookupUseCase).lookup("5033013-66.2026.8.21.0022");
     }
+
+    @Test
+    void searchTjrsProcessesByPerson_delegatesToProcessLookupUseCase() {
+        when(processLookupUseCase.searchByPerson("Maria Souza")).thenReturn("| processos |");
+
+        String result = doraTools.searchTjrsProcessesByPerson("Maria Souza");
+
+        assertEquals("| processos |", result);
+        verify(processLookupUseCase).searchByPerson("Maria Souza");
+    }
 }

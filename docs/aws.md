@@ -10,10 +10,12 @@ A região padrão é `sa-east-1` (São Paulo): a consulta processual do TJRS
 (`consulta.tjrs.jus.br`) não aceita conexões de IPs da AWS nos EUA — a
 conexão TCP simplesmente expira a partir de `us-east-1`.
 
-Custo aproximado (região `sa-east-1`, sob demanda): uma `t4g.medium` (2 vCPU /
-4 GiB) fica em torno de US$ 39/mês, mais ~US$ 9/mês para os 60 GiB de EBS
-(gp3, root + data) e o Elastic IP público (~US$ 3,60/mês). Considere uma
-Reserved/Savings Plan depois de validar a carga.
+Custo aproximado (região `sa-east-1`, sob demanda): uma `t4g.small` (2 vCPU /
+2 GiB) fica em torno de US$ 20/mês, mais ~US$ 6/mês para os 40 GiB de EBS
+(gp3, root + data) e o Elastic IP público (~US$ 3,60/mês). Os créditos de CPU
+ficam no modo `standard` (a instância desacelera acima da linha de base em vez
+de cobrar crédito extra). Considere uma Reserved/Savings Plan depois de
+validar a carga.
 
 ## Pré-requisitos
 
@@ -33,10 +35,10 @@ terraform apply
 ```
 
 Isso cria:
-- 1 instância EC2 `t4g.medium` (Amazon Linux 2023, ARM/Graviton)
+- 1 instância EC2 `t4g.small` (Amazon Linux 2023, ARM/Graviton), créditos de CPU no modo `standard`
 - Security Group com apenas as portas 80 e 443 abertas (sem porta 22 — acesso administrativo via SSM)
 - IAM role com a policy `AmazonSSMManagedInstanceCore` (acesso via Session Manager)
-- Volume EBS extra (40 GiB) para dados do Postgres/Redis
+- Volume EBS extra (20 GiB) para dados do Postgres/Redis e para o data-root do Docker
 - Elastic IP associado à instância
 
 Ao final, anote os outputs:
@@ -261,6 +263,14 @@ porque a consulta processual do TJRS (`consulta.tjrs.jus.br/consulta-processual`
 é uma SPA Angular sem API pública documentada — um `HttpClient` simples (como o
 usado pelo `WebScraper` do RAG) não é suficiente.
 
+A tool `DoraTools#searchTjrsProcessesByPerson` usa o mesmo Chromium, na mesma
+sessão, para a aba "Por nome da parte". A navegação abre `/partes/por-nome`
+com busca pelo nome exato (`tipoPesquisa=E`). O TJRS não consulta por CPF.
+Quando há uma única pessoa com esse nome, segue para
+`/partes/processos-por-nome`. O andamento detalhado continua em
+`lookupTjrsProcess`, quando o cliente informa o número CNJ. Com várias
+pessoas de nome idêntico, a tool para na lista de nomes.
+
 O `Dockerfile.jvm` usa a imagem oficial
 `mcr.microsoft.com/playwright/java:v1.62.0-noble`, que já inclui Chromium e as
 dependências de SO, e instala o Temurin JDK 25 via SDKMAN (`sdk install java
@@ -271,12 +281,13 @@ da EC2.
 
 Pontos de operação em produção:
 
-- **Arquitetura**: a EC2 é ARM (`t4g.medium` / Graviton). A tag precisa ter
+- **Arquitetura**: a EC2 é ARM (`t4g.small` / Graviton). A tag precisa ter
   `linux/arm64`. Se o pull falhar por falta dessa plataforma, o build na instância
   não sobe.
 - **Memória/CPU**: um Chromium headless consome bem mais RAM que o resto do app;
-  o Compose reserva `shm_size: 1gb` para o `/dev/shm` do Chromium. Revalidar se a
-  `t4g.medium` (4 GiB) comporta chats concorrentes com navegações simultâneas.
+  o Compose reserva `shm_size: 512mb` para o `/dev/shm` do Chromium, para caber
+  na `t4g.small` (2 GiB) junto com Postgres e Redis. Consultas simultâneas podem
+  estourar essa memória — nesse caso suba para `t4g.medium`.
 - **Rede de saída**: liberar egress para `consulta.tjrs.jus.br` (e `tjrs.jus.br`)
   no Security Group/NACLs. O TJRS descarta conexões de IPs da AWS nos EUA; por
   isso a instância roda em `sa-east-1`. Teste a partir da instância com

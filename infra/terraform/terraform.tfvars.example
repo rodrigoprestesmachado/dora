@@ -3,8 +3,8 @@
 
 # aws_region   = "sa-east-1"
 # project_name = "dora"
-# instance_type = "t4g.medium"
-# data_volume_size_gb = 40
+# instance_type = "t4g.small"
+# data_volume_size_gb = 20
 
 # Only set this if you need SSH in addition to (or instead of) SSM Session
 # Manager. Leave commented out to keep the security group closed on port 22.

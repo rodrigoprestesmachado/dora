@@ -1,6 +1,8 @@
 package dev.rpmhub.adapter.out.tjrs;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -28,7 +30,8 @@ class TjrsProcessScraperTest {
     void setUp() {
         scraper = new TjrsProcessScraper(new HtmlToMarkdown());
         scraper.notFoundMarkers = List.of("nenhum registro encontrado", "processo não encontrado",
-                "nenhum processo foi localizado", "não foi possível localizar", "não localizado");
+                "nenhum processo foi localizado", "não foi possível localizar", "não localizado",
+                "não foram encontrados processos para esse nome");
     }
 
     @Test
@@ -57,5 +60,26 @@ class TjrsProcessScraperTest {
                 + "<div>Comarca: Porto Alegre</div><div>Movimentações</div>";
 
         assertFalse(scraper.looksLikeNotFound(html));
+    }
+
+    @Test
+    void looksLikeNotFound_detectsAnEmptyNameSearch() {
+        String html = "<div>Não foram encontrados processos para esse nome com os critérios informados.</div>";
+
+        assertTrue(scraper.looksLikeNotFound(html));
+    }
+
+    @Test
+    void resolvePartyHref_prefixesTheConsultaProcessualContext() {
+        String pageUrl = "https://consulta.tjrs.jus.br/consulta-processual/partes/por-nome?nome=MARIA";
+
+        assertEquals(
+                "https://consulta.tjrs.jus.br/consulta-processual/partes/processos-por-nome?nome=MARIA",
+                TjrsProcessScraper.resolvePartyHref(pageUrl, "/partes/processos-por-nome?nome=MARIA"));
+        assertEquals(
+                "https://consulta.tjrs.jus.br/consulta-processual/partes/processos-por-nome?nome=MARIA",
+                TjrsProcessScraper.resolvePartyHref(pageUrl,
+                        "/consulta-processual/partes/processos-por-nome?nome=MARIA"));
+        assertNull(TjrsProcessScraper.resolvePartyHref(pageUrl, " "));
     }
 }

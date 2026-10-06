@@ -11,17 +11,20 @@ package dev.rpmhub.application;
 
 import java.util.Optional;
 
+import dev.rpmhub.domain.model.PartySearchResult;
 import dev.rpmhub.domain.model.ProcessLookupResult;
 import dev.rpmhub.domain.port.in.ProcessLookupUseCase;
 import dev.rpmhub.domain.port.out.ProcessLookupException;
 import dev.rpmhub.domain.port.out.ProcessLookupPort;
 import dev.rpmhub.domain.validation.CnjProcessNumberValidator;
+import dev.rpmhub.domain.validation.PersonNameValidator;
 import io.quarkus.logging.Log;
 
 /**
- * Application service that validates a process number, delegates the lookup
- * to a {@link ProcessLookupPort} and translates every outcome (success,
- * invalid input, not found, technical failure) into a clear message.
+ * Application service that validates a process number or a person's name,
+ * delegates the lookup to a {@link ProcessLookupPort} and translates every
+ * outcome (success, invalid input, not found, technical failure) into a clear
+ * message.
  *
  * <p>This class is deliberately framework-agnostic (plain Java) so it can be
  * unit tested without a CDI container. Its lifecycle and wiring are handled by
@@ -72,6 +75,47 @@ public class ProcessLookupService implements ProcessLookupUseCase {
             return "Ocorreu um erro inesperado ao consultar o processo " + normalized + ". "
                     + "Tente novamente mais tarde.";
         }
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String searchByPerson(String rawPersonName) {
+        String normalizedName = PersonNameValidator.normalize(rawPersonName);
+        if (normalizedName == null) {
+            return "O nome \"" + safe(rawPersonName) + "\" não serve para a consulta do TJRS. "
+                    + "Peça ao cliente o nome e o sobrenome (pelo menos duas palavras).";
+        }
+
+        try {
+            PartySearchResult result = processLookupPort.searchByPerson(normalizedName);
+            return formatPartySearch(result, normalizedName);
+        } catch (ProcessLookupException e) {
+            Log.warn("⚠️ Falha ao consultar processos de " + normalizedName + " no TJRS", e);
+            return "Não foi possível consultar processos de " + normalizedName + " no TJRS agora: o site do TJRS "
+                    + "pode estar indisponível ou ter mudado de layout. Tente novamente em alguns minutos.";
+        } catch (Exception e) {
+            Log.error("❌ Erro inesperado ao consultar processos de " + normalizedName + " no TJRS", e);
+            return "Ocorreu um erro inesperado ao consultar processos de " + normalizedName + " no TJRS. "
+                    + "Tente novamente mais tarde.";
+        }
+    }
+
+    private static String formatPartySearch(PartySearchResult result, String normalizedName) {
+        return switch (result.getKind()) {
+            case NOT_FOUND -> "Não foi possível localizar \"" + normalizedName
+                    + "\" na consulta por nome exato do TJRS, nem entre processos ativos nem entre baixados. "
+                    + "Essa consulta não lista processos em segredo de justiça (por exemplo, família e sucessões). "
+                    + "Confirme o nome com o cliente. Se ele tiver o número CNJ, consulte o andamento por esse número.";
+            case AMBIGUOUS_PEOPLE -> result.getMarkdown()
+                    + "\n\nHá mais de um cadastro com o nome exato \"" + normalizedName
+                    + "\". Apresente a lista e peça ao cliente para indicar qual é. "
+                    + "Não peça CPF: o TJRS não consulta processo por CPF.";
+            case PROCESS_LIST -> result.getMarkdown()
+                    + "\n\nEstes são os processos encontrados na consulta por nome do TJRS. "
+                    + "Peça ao cliente o número do processo desejado e consulte o andamento por esse número.";
+        };
     }
 
     private static String safe(String value) {

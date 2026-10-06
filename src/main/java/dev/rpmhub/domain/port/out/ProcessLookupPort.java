@@ -11,6 +11,7 @@ package dev.rpmhub.domain.port.out;
 
 import java.util.Optional;
 
+import dev.rpmhub.domain.model.PartySearchResult;
 import dev.rpmhub.domain.model.ProcessLookupResult;
 
 /**
@@ -33,4 +34,17 @@ public interface ProcessLookupPort {
      *                                 legitimate "not found" outcome)
      */
     Optional<ProcessLookupResult> lookup(String cnjNumber);
+
+    /**
+     * Searches processes of a person by exact name.
+     *
+     * @param normalizedName the person's name, already trimmed and in upper case,
+     *                       with at least two substantial words
+     * @return the scraped outcome (no match, several records with that exact
+     *         name, or the process list of the single match)
+     * @throws ProcessLookupException if the search could not be completed due to a
+     *                                 site/network/automation error (as opposed to a
+     *                                 legitimate "not found" outcome)
+     */
+    PartySearchResult searchByPerson(String normalizedName);
 }

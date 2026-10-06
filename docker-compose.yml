@@ -60,8 +60,9 @@ services:
       redis:
         condition: service_started
     # Chromium (Playwright) needs extra shared memory; the default 64 MiB /dev/shm
-    # in Docker is too small and causes headless crashes under load.
-    shm_size: "1gb"
+    # in Docker is too small and causes headless crashes. 512 MiB fits a single
+    # lookup on the t4g.small (2 GiB) production instance.
+    shm_size: "512mb"
     # No published ports: only reachable through the caddy reverse proxy.
     expose:
       - "8080"
