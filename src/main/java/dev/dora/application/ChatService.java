@@ -158,7 +158,7 @@ public class ChatService implements ChatUseCase {
     private String withToday(String message) {
         String today = LocalDate.now(clock).format(DateTimeFormatter.ofPattern(
                 "EEEE, dd/MM/yyyy", Locale.of("pt", "BR")));
-        return message + "\n\nData de hoje: " + today
+        return message + DoraAgent.TODAY_MARKER + today
                 + ". Use esta data para 'este mês' e 'última semana do mês', neste ano.";
     }
 }
