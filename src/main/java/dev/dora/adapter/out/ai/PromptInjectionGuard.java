@@ -90,7 +90,12 @@ public class PromptInjectionGuard implements InputGuardrail {
         if (marker < 0) {
             return userMessage;
         }
-        return userMessage.substring(marker + CLIENT_MESSAGE_MARKER.length()).trim();
+        String text = userMessage.substring(marker + CLIENT_MESSAGE_MARKER.length());
+        int today = text.lastIndexOf(DoraAgent.TODAY_MARKER);
+        if (today >= 0) {
+            text = text.substring(0, today);
+        }
+        return text.trim();
     }
 
     private static OptionalDouble parseScore(String text) {

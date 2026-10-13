@@ -42,6 +42,20 @@ class PromptInjectionGuardTest {
     }
 
     /**
+     * Ensures the date note that the service appends is not scored as client text.
+     */
+    @Test
+    void validate_scoresOnlyClientText_whenDateNoteIsAppended() {
+        List<String> scored = new ArrayList<>();
+        PromptInjectionGuard guard = guard(scored, "0.1");
+
+        guard.validate(UserMessage.from("Contexto: x\n\nMensagem do cliente: Trabalhista, online"
+                + DoraAgent.TODAY_MARKER + "terça-feira, 13/10/2026. Use esta data para 'este mês'."));
+
+        assertEquals(List.of("Trabalhista, online"), scored);
+    }
+
+    /**
      * Ensures the threshold itself and a chatty low score are allowed.
      */
     @Test

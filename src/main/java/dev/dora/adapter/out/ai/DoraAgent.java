@@ -29,6 +29,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 public interface DoraAgent {
 
     /**
+     * Separator that {@code ChatService} places between the client text and the date note it
+     * appends. The date note is a system instruction, not client input, so the injection guard
+     * must not score it.
+     */
+    String TODAY_MARKER = "\n\nData de hoje: ";
+
+    /**
      * Streams a chat response grounded in RAG-retrieved context.
      * {@link PromptInjectionGuard} runs before the model and its tools.
      *
