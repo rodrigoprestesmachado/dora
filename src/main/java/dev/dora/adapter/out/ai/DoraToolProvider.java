@@ -44,9 +44,9 @@ final class DoraToolProvider implements ToolProvider {
                     new Parameter("processNumber", ParameterKind.STRING, false))),
             new ToolDefinition("searchTjrsProcessesByPerson", List.of(
                     new Parameter("personName", ParameterKind.STRING, false))),
-            new ToolDefinition("check_availability", List.of(
-                    new Parameter("fromDate", ParameterKind.STRING, true),
-                    new Parameter("toDate", ParameterKind.STRING, true))),
+            // check_availability is deliberately not offered to the model: it lists every
+            // free slot and ignores scheduling.max-options-to-present. Only
+            // suggest_meeting_slots may present times to the client.
             new ToolDefinition("suggest_meeting_slots", List.of(
                     new Parameter("fromDate", ParameterKind.STRING, true),
                     new Parameter("toDate", ParameterKind.STRING, true),
@@ -174,8 +174,6 @@ final class DoraToolProvider implements ToolProvider {
                     text(args, "processNumber"), memoryId);
             case "searchTjrsProcessesByPerson" -> (args, memoryId) ->
                     tools.searchTjrsProcessesByPerson(text(args, "personName"), memoryId);
-            case "check_availability" -> (args, memoryId) -> tools.checkAvailability(
-                    text(args, "fromDate"), text(args, "toDate"));
             case "suggest_meeting_slots" -> (args, memoryId) -> tools.suggestMeetingSlots(
                     text(args, "fromDate"), text(args, "toDate"), text(args, "excludeEventId"));
             case "schedule_meeting" -> (args, memoryId) -> tools.scheduleMeeting(

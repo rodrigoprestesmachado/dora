@@ -16,18 +16,6 @@ se houver várias com o mesmo nome, devolve a lista para o cliente indicar qual 
 Não consulta o andamento detalhado: depois que o cliente informar o número CNJ,
 use a consulta por número do processo.
 
-[check_availability]
-Consulta a agenda e devolve os horários livres para uma reunião, já
-filtrados pelos dias, janelas, duração e antecedência configurados.
-Datas opcionais no formato AAAA-MM-DD.
-Não oferece horário ocupado nem fora da janela de busca.
-
-[check_availability.fromDate]
-Data inicial opcional, AAAA-MM-DD. Vazio para começar hoje.
-
-[check_availability.toDate]
-Data final opcional, AAAA-MM-DD. Vazio para usar a janela configurada.
-
 [suggest_meeting_slots]
 Consulta a agenda e devolve as opções de dia e horário para o cliente
 escolher.
@@ -62,7 +50,7 @@ ID da reunião que está sendo reagendada. Vazio ao marcar uma reunião nova.
 
 [schedule_meeting]
 Marca a reunião no horário escolhido, com a duração configurada.
-Use somente um início devolvido por check_availability ou suggest_meeting_slots.
+Use somente um início devolvido por suggest_meeting_slots.
 O título é o nome de quem solicitou.
 O e-mail do cliente entra na lista nos dois modos, e o Google envia o convite.
 Modo online cria o link do Google Meet.

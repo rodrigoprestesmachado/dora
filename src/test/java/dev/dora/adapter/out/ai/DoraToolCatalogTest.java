@@ -86,7 +86,7 @@ class DoraToolCatalogTest {
     @Test
     void descriptionsComeFromThePromptFile() {
         DoraToolTexts texts = DoraToolTexts.load();
-        assertEquals(27, texts.keys().size());
+        assertEquals(24, texts.keys().size());
         assertEquals(CANCEL_TEXT, texts.text("cancel_meeting"));
         for (String value : texts.keys()) {
             assertFalse(texts.text(value).contains("  "));
@@ -100,14 +100,14 @@ class DoraToolCatalogTest {
 
         ToolSpecification lookup = tools.get("lookupTjrsProcess").toolSpecification();
         assertNull(lookup.parameters().properties().get("processNumber").description());
-        assertEquals(8, tools.size());
+        assertEquals(7, tools.size());
+        assertFalse(tools.containsKey("check_availability"));
     }
 
     @Test
     void eachToolDelegatesToTheUseCase() {
         when(processLookupUseCase.lookup("5033013-66.2026.8.21.0022")).thenReturn("andamento");
         when(processLookupUseCase.searchByPerson("Maria Souza")).thenReturn("pessoas");
-        when(checkAvailabilityUseCase.check("2026-10-13", "2026-10-20")).thenReturn("livres");
         when(suggestMeetingSlotsUseCase.suggest("2026-10-13", null, "evt-1")).thenReturn("opções");
         when(scheduleMeetingUseCase.schedule("2026-10-13T09:00", "Consulta",
                 "ana@escritorio.com", "online", "contrato")).thenReturn("marcada");
@@ -120,8 +120,6 @@ class DoraToolCatalogTest {
         assertNull(ConversationPhone.current());
         assertEquals("pessoas", execute("searchTjrsProcessesByPerson",
                 "{\"personName\":\"Maria Souza\"}", null));
-        assertEquals("livres", execute("check_availability",
-                "{\"fromDate\":\"2026-10-13\",\"toDate\":\"2026-10-20\"}", null));
         assertEquals("opções", execute("suggest_meeting_slots",
                 "{\"fromDate\":\"2026-10-13\",\"excludeEventId\":\"evt-1\"}", null));
         assertEquals("marcada", execute("schedule_meeting",
