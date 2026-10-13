@@ -20,6 +20,7 @@ import dev.dora.domain.model.UserMessage;
 import dev.dora.domain.port.in.ChatUseCase;
 import dev.dora.domain.port.out.EmbeddingRepository;
 import dev.dora.domain.port.out.Repository;
+import dev.langchain4j.guardrail.InputGuardrailException;
 import io.smallrye.mutiny.Multi;
 import java.time.Clock;
 import java.time.LocalDate;
@@ -41,6 +42,12 @@ public class ChatService implements ChatUseCase {
 
     /** Fallback context string used when no relevant chunk is found. */
     private static final String DEFAULT_CONTEXT = "";
+
+    /**
+     * Reply returned when the input guardrail rejects the client message.
+     */
+    static final String BLOCKED_REPLY = "Desculpe, não posso atender essa mensagem. "
+            + "Posso ajudar com informações do escritório, andamento de processo ou agendamento.";
 
     /**
      * Repository used to load and store the last chat per user.
@@ -118,7 +125,7 @@ public class ChatService implements ChatUseCase {
 
         StringBuilder buffer = new StringBuilder();
 
-        return doraAgent.answer(phoneNumber, context, withToday(message))
+        return agentReply(phoneNumber, context, withToday(message))
                 .invoke(buffer::append)
                 .onCompletion().invoke(() -> {
                     AgentMessage agentMessage = new AgentMessage();
@@ -127,6 +134,25 @@ public class ChatService implements ChatUseCase {
                     chat.addMessage(agentMessage);
                     chatRepository.save(chat);
                 });
+    }
+
+    private Multi<String> agentReply(String phoneNumber, String context, String prompt) {
+        try {
+            return doraAgent.answer(phoneNumber, context, prompt)
+                    .onFailure(ChatService::causedByInputGuardrail)
+                    .recoverWithItem(BLOCKED_REPLY);
+        } catch (InputGuardrailException exception) {
+            return Multi.createFrom().item(BLOCKED_REPLY);
+        }
+    }
+
+    private static boolean causedByInputGuardrail(Throwable failure) {
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            if (current instanceof InputGuardrailException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String withToday(String message) {

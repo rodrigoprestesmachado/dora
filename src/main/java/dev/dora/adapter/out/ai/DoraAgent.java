@@ -13,6 +13,7 @@ package dev.dora.adapter.out.ai;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.guardrail.InputGuardrails;
 import io.quarkiverse.langchain4j.RegisterAiService;
 import io.smallrye.mutiny.Multi;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -29,6 +30,7 @@ public interface DoraAgent {
 
     /**
      * Streams a chat response grounded in RAG-retrieved context.
+     * {@link PromptInjectionGuard} runs before the model and its tools.
      *
      * @param memoryId stable identifier (phone number) used to isolate conversational memory per
      *     user
@@ -38,6 +40,7 @@ public interface DoraAgent {
      */
     @SystemMessage(fromResource = "prompts/dora-system.txt")
     @UserMessage("Contexto: {context}\n\nMensagem do cliente: {prompt}")
+    @InputGuardrails(PromptInjectionGuard.class)
     Multi<String> answer(@MemoryId String memoryId, String context, String prompt);
 
 }
