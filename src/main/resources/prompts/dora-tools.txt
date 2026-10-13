@@ -1,0 +1,137 @@
+# Textos que o modelo vê nas ferramentas da Dora.
+# Cada bloco começa com [nome] ou [nome.parametro].
+# As linhas de um bloco são unidas com um espaço.
+# Linhas em branco e linhas que começam com # são ignoradas.
+
+[lookupTjrsProcess]
+Consulta no TJRS (Tribunal de Justiça do RS) o status e a última movimentação
+de um processo judicial, a partir do número do processo no formato CNJ
+(ex.: 5033013-66.2026.8.21.0022).
+
+[searchTjrsProcessesByPerson]
+Lista no TJRS os processos de uma pessoa a partir do nome exato da parte
+(nome e sobrenome). Não peça CPF: o TJRS não consulta por CPF.
+Se houver uma única pessoa com esse nome, devolve os processos dela;
+se houver várias com o mesmo nome, devolve a lista para o cliente indicar qual é.
+Não consulta o andamento detalhado: depois que o cliente informar o número CNJ,
+use a consulta por número do processo.
+
+[check_availability]
+Consulta a agenda e devolve os horários livres para uma reunião, já
+filtrados pelos dias, janelas, duração e antecedência configurados.
+Datas opcionais no formato AAAA-MM-DD.
+Não oferece horário ocupado nem fora da janela de busca.
+
+[check_availability.fromDate]
+Data inicial opcional, AAAA-MM-DD. Vazio para começar hoje.
+
+[check_availability.toDate]
+Data final opcional, AAAA-MM-DD. Vazio para usar a janela configurada.
+
+[suggest_meeting_slots]
+Consulta a agenda e devolve as opções de dia e horário para o cliente
+escolher.
+Chame só depois da modalidade e do e-mail, no online e no presencial.
+Se a resposta for 'escritório' ou 'presencial' e o e-mail ainda não foi dito,
+informe o endereço e peça o e-mail; não chame a ferramenta ainda.
+Com o e-mail, chame nesta mesma vez, informe o endereço e mostre as opções. Não
+responda só com o endereço.
+A data de hoje vem na mensagem. A última semana do mês é desse mês e desse ano.
+Se a resposta disser para apresentar opções, mostre-as e espere a
+escolha. Essa lista é só uma amostra da janela de busca. Se o cliente pedir
+outra data dentro dessa janela, chame de novo com fromDate e toDate e mostre
+o que voltar. Não diga que a agenda ainda não está aberta.
+Se a resposta disser que as datas estão fora da janela, chame de novo com o
+intervalo informado. Não diga que não há horários e não ofereça mudar os dias
+de atendimento.
+Se disser para marcar direto, use o único horário, mas antes pergunte se o cliente
+quer adiantar o assunto, salvo se ele já tiver respondido.
+No reagendamento, informe o ID da reunião para o horário atual dela não
+contar como conflito.
+
+[suggest_meeting_slots.fromDate]
+Data inicial opcional, AAAA-MM-DD, no ano da data de hoje. Vazio para começar
+hoje. Preencha quando o cliente pedir um período mais à frente, ainda dentro
+da janela de busca.
+
+[suggest_meeting_slots.toDate]
+Data final opcional, AAAA-MM-DD. Vazio para usar a janela configurada.
+
+[suggest_meeting_slots.excludeEventId]
+ID da reunião que está sendo reagendada. Vazio ao marcar uma reunião nova.
+
+[schedule_meeting]
+Marca a reunião no horário escolhido, com a duração configurada.
+Use somente um início devolvido por check_availability ou suggest_meeting_slots.
+O título é o nome de quem solicitou.
+O e-mail do cliente entra na lista nos dois modos, e o Google envia o convite.
+Modo online cria o link do Google Meet.
+Modo presencial grava o endereço do escritório e não pede link.
+Confirme a data e a hora com o fuso; no online, também o link; no presencial, o
+endereço e que o convite foi enviado para o e-mail.
+As notas são o assunto que o cliente quis adiantar. Ficam vazias se ele não
+quiser. Não invente esse texto.
+
+[schedule_meeting.startDateTime]
+Início escolhido, no formato AAAA-MM-DDTHH:mm, no fuso da agenda.
+
+[schedule_meeting.title]
+Título da reunião: o nome de quem solicitou.
+
+[schedule_meeting.attendeeEmails]
+Lista com o e-mail do cliente. Obrigatório no online e no presencial.
+
+[schedule_meeting.mode]
+Modalidade: online ou presencial.
+
+[schedule_meeting.notes]
+Assunto que o cliente quis adiantar, com as palavras dele. Vazio se ele não
+quiser adiantar.
+
+[find_meetings]
+Localiza reuniões futuras criadas pela Dora, para reagendar ou cancelar
+sem o cliente precisar saber o ID. Se houver mais de uma, pergunte qual
+reunião o cliente quer alterar.
+
+[find_meetings.attendeeEmail]
+E-mail opcional de um participante. Vazio para não filtrar.
+
+[find_meetings.fromDate]
+Data inicial opcional, AAAA-MM-DD.
+
+[find_meetings.toDate]
+Data final opcional, AAAA-MM-DD.
+
+[find_meetings.titleQuery]
+Trecho opcional do título.
+
+[reschedule_meeting]
+Reagenda uma reunião existente criada pela Dora para um novo horário
+válido, mantendo o mesmo evento. O novo início deve vir de
+suggest_meeting_slots.
+Confirme a nova data e a hora com o fuso. Se a resposta trouxer um link,
+ele permanece o mesmo.
+Se não houver link, confirme o endereço do escritório.
+O convite da agenda é atualizado no e-mail do cliente.
+
+[reschedule_meeting.eventId]
+ID da reunião, obtido em find_meetings ou schedule_meeting.
+
+[reschedule_meeting.newStartDateTime]
+Novo início, no formato AAAA-MM-DDTHH:mm, escolhido entre as sugestões.
+
+[cancel_meeting]
+Cancela uma reunião criada pela Dora. Ação destrutiva: só passe
+confirmedByUser=true depois que o cliente confirmar explicitamente, e a
+mensagem de confirmação deve citar o título e a data/hora.
+Não cancela reunião que a Dora não marcou.
+
+[cancel_meeting.eventId]
+ID da reunião, obtido em find_meetings ou schedule_meeting.
+
+[cancel_meeting.reason]
+Motivo opcional do cancelamento. Vazio se o cliente não informou.
+
+[cancel_meeting.confirmedByUser]
+true somente depois que o cliente confirmar o cancelamento, ciente do título e
+do horário.

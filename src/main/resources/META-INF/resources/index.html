@@ -153,6 +153,10 @@
     border: 1px solid #374151;
     padding: 4px 8px;
   }
+  .msg.ai .content.progress {
+    color: var(--muted);
+    font-style: italic;
+  }
   .typing {
     display: inline-flex;
     align-items: center;
@@ -505,6 +509,31 @@
       }
     }
 
+    const PROGRESS_MARK = '\u001e';
+
+    function consumeStream(pending, onAnswer, onProgress) {
+      let rest = pending;
+      while (rest.length > 0) {
+        const start = rest.indexOf(PROGRESS_MARK);
+        if (start === -1) {
+          onAnswer(rest);
+          return '';
+        }
+        if (start > 0) {
+          onAnswer(rest.slice(0, start));
+          rest = rest.slice(start);
+          continue;
+        }
+        const end = rest.indexOf(PROGRESS_MARK, 1);
+        if (end === -1) {
+          return rest;
+        }
+        onProgress(rest.slice(1, end));
+        rest = rest.slice(end + 1);
+      }
+      return '';
+    }
+
     form.addEventListener('submit', async (evt) => {
       evt.preventDefault();
       const question = input.value.trim();
@@ -516,8 +545,8 @@
 
       const aiContent = addMessage('ai', '');
       showTypingIndicator(aiContent);
-      let firstChunkReceived = false;
       let rawAnswer = '';
+      let pending = '';
 
       try {
         const body = new URLSearchParams();
@@ -541,12 +570,17 @@
           }
         } else {
           await streamPlainText(response, (chunk) => {
-            if (!firstChunkReceived) {
-              firstChunkReceived = true;
-              aiContent.innerHTML = '';
-            }
-            rawAnswer += chunk;
-            aiContent.innerHTML = renderMarkdown(rawAnswer);
+            pending = consumeStream(pending + chunk, (text) => {
+              aiContent.classList.remove('progress');
+              rawAnswer += text;
+              aiContent.innerHTML = renderMarkdown(rawAnswer);
+            }, (text) => {
+              if (rawAnswer.length > 0) {
+                return;
+              }
+              aiContent.classList.add('progress');
+              aiContent.textContent = text;
+            });
             messagesEl.scrollTop = messagesEl.scrollHeight;
           });
         }

@@ -39,6 +39,11 @@ nb-configuration.xml
 # Local environment
 .env
 
+# Calendar provider secrets (OAuth client and service-account keys)
+gcp-oauth.keys.json
+client_secret*.json
+service-account.json
+
 # Plugin directory
 /.quarkus/cli/plugins/
 # TLS Certificates
