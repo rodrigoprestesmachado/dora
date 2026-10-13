@@ -110,6 +110,22 @@ Variáveis obrigatórias em `.env`:
 Variáveis opcionais (deixe em branco para desabilitar a feature):
 - `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_VERIFY_TOKEN`, `WHATSAPP_APP_SECRET`
 
+O agendamento usa o Google Calendar. A imagem já traz o comando
+`google-calendar-mcp`; as credenciais não entram na imagem. Copie os dois
+arquivos para a instância antes de subir o container `dora`:
+
+```bash
+mkdir -p /opt/dora/secrets
+# no seu computador, a partir do checkout local:
+#   gcp-oauth.keys.json
+#   ~/.config/dora/google-calendar-mcp-token.json
+```
+
+Destinos na instância:
+
+- `/opt/dora/secrets/gcp-oauth.keys.json`
+- `/opt/dora/secrets/google-calendar-mcp-token.json` (precisa continuar gravável; o servidor atualiza o refresh token)
+
 ## 5. Build e subida do stack
 
 ```bash

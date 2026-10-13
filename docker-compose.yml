@@ -54,6 +54,15 @@ services:
       # Required in prod: used as the chat model (gpt-4o-mini) and for WhatsApp audio
       # transcription (Whisper).
       OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY in .env}
+      # Overrides the npx command baked into older images. The binary is on PATH
+      # after the image installs @cocal/google-calendar-mcp.
+      QUARKUS_LANGCHAIN4J_MCP_GOOGLE_CALENDAR_COMMAND: google-calendar-mcp
+      GOOGLE_OAUTH_CREDENTIALS: /secrets/gcp-oauth.keys.json
+      GOOGLE_CALENDAR_MCP_TOKEN_PATH: /secrets/google-calendar-mcp-token.json
+    volumes:
+      # Absolute paths: CI runs compose from the runner checkout, not /opt/dora.
+      - /opt/dora/secrets/gcp-oauth.keys.json:/secrets/gcp-oauth.keys.json:ro
+      - /opt/dora/secrets/google-calendar-mcp-token.json:/secrets/google-calendar-mcp-token.json
     depends_on:
       postgres:
         condition: service_healthy

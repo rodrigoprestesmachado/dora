@@ -39,6 +39,24 @@ RUN set -eux; \
 ENV JAVA_HOME=/root/.sdkman/candidates/java/current
 ENV PATH="${JAVA_HOME}/bin:${PATH}"
 
+# Google Calendar access is a stdio child process (@cocal/google-calendar-mcp),
+# which requires Node 20 or newer. Install both in the image so production does
+# not depend on npx being present when a meeting is requested.
+ARG NODE_VERSION=20.19.5
+ARG GOOGLE_CALENDAR_MCP_VERSION=2.7.0
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) node_arch="x64" ;; \
+      arm64) node_arch="arm64" ;; \
+      *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${node_arch}.tar.gz" -o /tmp/node.tar.gz; \
+    tar -xzf /tmp/node.tar.gz -C /usr/local --strip-components=1; \
+    rm /tmp/node.tar.gz; \
+    npm install -g "@cocal/google-calendar-mcp@${GOOGLE_CALENDAR_MCP_VERSION}"; \
+    command -v google-calendar-mcp
+
 # We make four distinct layers so if there are application changes the library layers can be re-used
 COPY target/quarkus-app/lib/ /deployments/lib/
 COPY target/quarkus-app/*.jar /deployments/
