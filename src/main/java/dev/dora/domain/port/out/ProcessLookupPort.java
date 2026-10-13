@@ -1,0 +1,50 @@
+/*
+ * Copyright (c) 2026 Rodrigo Prestes Machado
+ * All rights reserved.
+ *
+ * This source code is proprietary and confidential.
+ * Unauthorized copying, modification, distribution, or use
+ * of this software, via any medium, is strictly prohibited
+ * without the express prior written permission of the copyright holder.
+ */
+
+package dev.dora.domain.port.out;
+
+import dev.dora.domain.model.PartySearchResult;
+import dev.dora.domain.model.ProcessLookupResult;
+import java.util.Optional;
+
+/**
+ * Driven port (out) for looking up the status of a legal process ("processo")
+ * on a court's public search system (e.g. TJRS).
+ *
+ * @author Rodrigo Prestes Machado
+ */
+public interface ProcessLookupPort {
+
+    /**
+     * Looks up a legal process by its canonical CNJ number.
+     *
+     * @param cnjNumber the process number, already normalized to the canonical
+     *                   CNJ format ({@code NNNNNNN-DD.AAAA.J.TR.OOOO})
+     * @return Optional containing the scraped result, or empty if the process was
+     *         not found (e.g. non-existent number, or under judicial secrecy)
+     * @throws ProcessLookupException if the lookup could not be completed due to a
+     *                                 site/network/automation error (as opposed to a
+     *                                 legitimate "not found" outcome)
+     */
+    Optional<ProcessLookupResult> lookup(String cnjNumber);
+
+    /**
+     * Searches processes of a person by exact name.
+     *
+     * @param normalizedName the person's name, already trimmed and in upper case,
+     *                       with at least two substantial words
+     * @return the scraped outcome (no match, several records with that exact
+     *         name, or the process list of the single match)
+     * @throws ProcessLookupException if the search could not be completed due to a
+     *                                 site/network/automation error (as opposed to a
+     *                                 legitimate "not found" outcome)
+     */
+    PartySearchResult searchByPerson(String normalizedName);
+}
