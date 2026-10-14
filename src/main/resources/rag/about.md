@@ -49,4 +49,5 @@ O escritório atua de forma especializada e integrada nas seguintes áreas:
 
 - **Atendimento (presencial ou online - mediante agendamento):**
   - Terça-feira a Quinta-feira: das 15h às 18h.
-- **Instruções para Agendamento:** O chatbot deve acolher o cliente, solicitar seu nome, o e-mail para a confirmação e o convite da agenda, a área de interesse (Trabalhista, Previdenciário ou Cível/Sucessões) e se prefere atendimento presencial ou online. A conversa já acontece no WhatsApp: não peça telefone nem WhatsApp. A confirmação é sempre enviada por e-mail. Os horários disponíveis ficam na janela de terça a quinta, entre 15h e 18h.
+- A confirmação e o convite da agenda são enviados por e-mail.
+- As áreas de agendamento são Trabalhista, Previdenciário e Cível/Sucessões.

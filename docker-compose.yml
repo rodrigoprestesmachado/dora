@@ -4,7 +4,7 @@
 # Services:
 #   caddy    - reverse proxy, automatic HTTPS (Let's Encrypt) for DOMAIN
 #   dora     - the Quarkus app itself (this repo), built from src/main/docker/Dockerfile.jvm.
-#              Runs the "prod" Quarkus profile, which uses OpenAI (gpt-4o-mini) as the chat
+#              Runs the "prod" Quarkus profile, which uses OpenAI (gpt-6-luna) as the chat
 #              model instead of Ollama (see application.properties) — no local LLM runtime
 #              needed on the instance.
 #   postgres - pgvector-enabled Postgres, chat persistence + embeddings storage
@@ -51,7 +51,7 @@ services:
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
       WHATSAPP_VERIFY_TOKEN: ${WHATSAPP_VERIFY_TOKEN:-dora-webhook-verify}
       WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:-}
-      # Required in prod: used as the chat model (gpt-4o-mini) and for WhatsApp audio
+      # Required in prod: used as the chat model (gpt-6-luna) and for WhatsApp audio
       # transcription (Whisper).
       OPENAI_API_KEY: ${OPENAI_API_KEY:?set OPENAI_API_KEY in .env}
       # Overrides the npx command baked into older images. The binary is on PATH

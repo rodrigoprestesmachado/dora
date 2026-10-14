@@ -3,8 +3,8 @@
 Este guia cobre o deploy do dora em uma única instância EC2, rodando o app,
 Postgres+pgvector e Redis via Docker Compose, com HTTPS automático via Caddy.
 É a opção mais barata: sem RDS, ElastiCache ou ALB. Em produção o chat usa a
-API da OpenAI (`gpt-4o-mini`) em vez de um LLM local — não é preciso rodar
-Ollama na instância (isso só é usado em desenvolvimento local).
+API da OpenAI (`gpt-6-luna`) em vez de um LLM local — não é preciso rodar
+Ollama na instância (os testes ainda usam Ollama).
 
 A região padrão é `sa-east-1` (São Paulo): a consulta processual do TJRS
 (`consulta.tjrs.jus.br`) não aceita conexões de IPs da AWS nos EUA — a
@@ -104,7 +104,7 @@ Variáveis obrigatórias em `.env`:
 - `DOMAIN` — o domínio apontado no passo 2 (ex.: `dora.example.com`)
 - `ACME_EMAIL` — e-mail usado pelo Caddy no registro do Let's Encrypt
 - `POSTGRES_PASSWORD` — senha forte para o banco
-- `OPENAI_API_KEY` — usada como modelo de chat em produção (`gpt-4o-mini`); gere em
+- `OPENAI_API_KEY` — usada como modelo de chat em produção (`gpt-6-luna`); gere em
   [platform.openai.com](https://platform.openai.com/api-keys)
 
 Variáveis opcionais (deixe em branco para desabilitar a feature):

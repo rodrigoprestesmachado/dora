@@ -104,6 +104,10 @@ public class RagIngestion implements IngestPort {
                 return;
             }
 
+            // Startup re-reads the base directory. Drop the previous chunks so an edited
+            // document replaces the old text instead of sitting beside it.
+            embeddingStore.removeAll();
+
             EmbeddingStoreIngestor ingestor = EmbeddingStoreIngestor.builder()
                     .embeddingStore(embeddingStore)
                     .embeddingModel(embeddingModel)
